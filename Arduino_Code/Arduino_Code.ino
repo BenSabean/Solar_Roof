@@ -18,9 +18,11 @@ void loop()
 {
   float temp;
   // Programming to move throught Current Array and calculating the current passing through each sensor
+  Serial.println("START");
+  Serial2.println("START");
   for ( int i = 0; i < 10; i++)
   {
-    Serial.print("Sensor " + String(i));
+    Serial.print("Sensor " + String(i+1));
     temp = analogRead(Sensor[i]);     Serial.println("Raw AtoD = " + String(temp));
     temp = map(temp, 0, 1024, 0, 5);  Serial.println("Raw Voltage = " + String(temp));      // (Value[i] * 5) / 1024;
     temp = (temp / 240) - 0.012;      Serial.println("Raw Sensor Value = " + String(temp));
@@ -28,7 +30,6 @@ void loop()
     // Printing for ESP8266
     Serial2.println(String(temp));
   }
-
   delay(5000);
 }
 
