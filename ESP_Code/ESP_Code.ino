@@ -6,71 +6,93 @@
 #include <ESP8266WiFi.h>            // ESP WiFi Libarary
 #include <PubSubClient.h>           // MQTT publisher/subscriber client 
 #include <stdio.h>                  // for sprintf function
+
 #include <SoftwareSerial.h>         // For Arduino communication
 #include <SPI.h>                    // For SD card read/write
 #include <SD.h>                     // For SD card read/write
 #include <RTClib.h>                 // For RTC - DS1387 clock
 #include <AERClient.h>              // Custom made Library for IoT server
 
-#define SEN_NUM 12                  // Number of sensors
+#define SEN_NUM 11
 
-//------------------Wi-Fi-----------------------//
-#define DEVICE_ID 4
 /* Wifi setup */
+#define DEVICE_ID 4
 const char* ssid =        "AER172-2";
 const char* password =    "80mawiomi*";
 AERClient server(DEVICE_ID);
 
-//------------SoftwareSerial------------------//
+// SoftwareSerial //
 #define RX  2
 #define TX  3
 SoftwareSerial Arduino(RX, TX);
 
-//----------------SD Card--------------------//
+// SD Card //
 #define CS 15
 File dataFile;
+volatile int Message_count = 0;     // Counting sensors for SD writing
 
-//--------------RealTimeClock----------------//
+// RealTimeClock //
 RTC_PCF8523 rtc;
 
 void setup()
 {
   // ----------
-  Serial.begin(9600);
-  Serial.println();
+  Serial.begin(115200);
+  Serial.println("START");
   // ----------
   // Communication
   Arduino.begin(9600);
   // Start wifi and server communication
-  server.begin(ssid, password);
+  server.init(ssid, password);
   // DEBUG
   server.debug();
 }
 
 void loop()
 {
-  String message, FileName, sensorName, data[SEN_NUM], Time;
+  String message, FileName, data[SEN_NUM], Time, value;
   bool header_printed, published;
-  DateTime dateTime;
+  int index = 0;
+  char buff[50];
+  DateTime dateTime = rtc.now();      // Getting Time
+
+  Serial.println(                     // Printing
+    String(dateTime.year()) + "/" +
+    String(dateTime.month()) + "/" +
+    String(dateTime.day()) + " " +
+    String(dateTime.hour()) + ":" +
+    String(dateTime.year())
+  );
 
   /* Store received sensors from Arduino */
-  message = get_message();
-  if (message == "START\n")
+  if (Arduino.available())
   {
+    message = Arduino.readString();
+    Serial.println("GOT: " + message);
+    // Error checking and saving
+    if (message.substring(0, 1) == "S")
+    {
+      strcpy(buff, message.c_str());
+      index = (String(strtok(buff, "_"))).toInt();
+      value = String(strtok(NULL, "_"));
+      if (index < SEN_NUM) data[index] = value;
+      Message_count++;                 // Increment sensor count
+    }
+  }
+
+  if (Message_count >= SEN_NUM)
+  {
+    Message_count = 0;
+    Serial.print("\n");
     for (uint8_t i = 0; i < SEN_NUM; i++)
-      data[i] = get_message();
+      Serial.print("data[" + String(i) + "] = " + String(data[i]));
+    Serial.print("\n");
   }
-  /* Publishing sensor over MQTT */
-  for (uint8_t i = 0; i < SEN_NUM; i++)
-  {
-    if (i < 10)   server.publish("Current" + String(i), data[i]);
-    if (i == 10)  server.publish("Voltage", data[i]);
-    if (i == 11)  server.publish("Temperature", data[i]);
-  }
-  /* Save on SD Card */
-  if (!rtc.begin())         Serial.println("Couldn't find RTC");
-  else
-  {
+  /*
+    // Save on SD Card
+    if (!rtc.begin())         Serial.println("Couldn't find RTC");
+    else
+    {
     if (!rtc.initialized()) Serial.println("RTC is NOT running!");
     else
     {
@@ -78,22 +100,26 @@ void loop()
       else
       {
         dateTime = rtc.now();      // Getting Time
-        Serial.println(
+
+        Serial.println(            // Printing
           String(dateTime.year()) + "/" +
           String(dateTime.month()) + "/" +
           String(dateTime.day()) + " " +
           String(dateTime.hour()) + ":" +
           String(dateTime.year())
         );
+        // Creating File Name for storage
         FileName = String(dateTime.day()) + "_" + String(dateTime.month()) + "_" + String(dateTime.year()) + ".csv";
-        header_printed = SD.exists(FileName);// Check if file already exist
-        dataFile = SD.open(FileName, FILE_WRITE);
+        header_printed = SD.exists(FileName);       // Check if file already exist
+        dataFile = SD.open(FileName, FILE_WRITE);   // Opening the file
         if (dataFile)
         {
           // Header
           if (!header_printed) printHeaders();    // printing headers
+
           // dateTime
           dataFile.print(String(dateTime.year()) + "/" + String(dateTime.month()) + "/" + String(dateTime.day()) + ",");
+
           // Time
           Time = String(dateTime.hour()) + ":";
           if (dateTime.minute() < 10)
@@ -110,7 +136,8 @@ void loop()
         }
       }
     }
-  }
+    }
+  */
 }
 
 /*
@@ -134,10 +161,23 @@ void printHeaders ()
 
 /*
    Reads mesage from Arduino
+
+  String get_message ()
+  {
+  long _strt, _delta;
+
+  // Safe non-blocking loop to get the data
+  for (uint8_t i = 0; i < SERIAL_RETRY; i++)
+  {
+    _strt = millis();
+    _delta = (millis() - _strt);
+    while (_delta < (SERIAL_TIMEOUT_S * 100))
+    {
+      if (Arduino.available()) return (Arduino.readString());
+
+      _delta = abs(millis() - _strt);
+    }
+  }
+  }
 */
-String get_message ()
-{
-  while (!Arduino.available());
-  return Arduino.readString();
-}
 
