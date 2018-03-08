@@ -4,26 +4,26 @@
    dateTime: Feb1, 2018
 */
 #include <ESP8266WiFi.h>            // ESP WiFi Libarary
-#include <PubSubClient.h>           // MQTT publisher/subscriber client 
+#include <PubSubClient.h>           // MQTT publisher/subscriber client
 #include <stdio.h>                  // for sprintf function
-
 #include <SoftwareSerial.h>         // For Arduino communication
 #include <SPI.h>                    // For SD card read/write
 #include <SD.h>                     // For SD card read/write
-#include <RTClib.h>                 // For RTC - DS1387 clock
+#include <Wire.h>
+#include "RTClib.h"                 // For RTC - DS1387 clock
 #include <AERClient.h>              // Custom made Library for IoT server
 
 #define SEN_NUM 11
 
 /* Wifi setup */
 #define DEVICE_ID 4
-const char* ssid =        "AER172-2";
-const char* password =    "80mawiomi*";
+const char ssid[] =        "AER172-2";
+const char password[] =    "80mawiomi*";
 AERClient server(DEVICE_ID);
 
 // SoftwareSerial //
-#define RX  2
-#define TX  3
+#define RX  12
+#define TX  14
 SoftwareSerial Arduino(RX, TX);
 
 // SD Card //
@@ -40,36 +40,47 @@ void setup()
   Serial.begin(115200);
   Serial.println("START");
   // ----------
+  // RTC initialization
+  if (! rtc.begin())
+    Serial.println("Couldn't find RTC");
   // Communication
-  Arduino.begin(9600);
+  Arduino.begin(57600);
   // Start wifi and server communication
-  server.init(ssid, password);
-  // DEBUG
-  server.debug();
+  //server.init(ssid, password);
+  //Serial.println("\nCONNECTED");
+  // Uncomment to debug WiFi and server connection
+  //server.debug();
+  // Uncomment to set RTC time if its drifted
+  //RTC_setTime();
+
 }
 
 void loop()
 {
   String message, FileName, data[SEN_NUM], Time, value;
   bool header_printed, published;
-  int index = 0;
-  char buff[50];
-  DateTime dateTime = rtc.now();      // Getting Time
+  int index = 0, i;
+  char buff[100] = {'\0'}, ch;
+  //DateTime dateTime = rtc.now();      // Getting Time
 
+  /*
   Serial.println(                     // Printing
     String(dateTime.year()) + "/" +
     String(dateTime.month()) + "/" +
     String(dateTime.day()) + " " +
     String(dateTime.hour()) + ":" +
-    String(dateTime.year())
+    String(dateTime.minute())
   );
+  */
 
   /* Store received sensors from Arduino */
   if (Arduino.available())
   {
-    message = Arduino.readString();
-    Serial.println("GOT: " + message);
+    Serial.println("GOT SOMETHING");
+    //strcpy(buff, (Arduino.readString()).c_str());
+    Serial.println(Arduino.readString());
     // Error checking and saving
+    /*
     if (message.substring(0, 1) == "S")
     {
       strcpy(buff, message.c_str());
@@ -78,8 +89,10 @@ void loop()
       if (index < SEN_NUM) data[index] = value;
       Message_count++;                 // Increment sensor count
     }
+    */
   }
 
+/*
   if (Message_count >= SEN_NUM)
   {
     Message_count = 0;
@@ -88,6 +101,9 @@ void loop()
       Serial.print("data[" + String(i) + "] = " + String(data[i]));
     Serial.print("\n");
   }
+  */
+
+  delay(100);
   /*
     // Save on SD Card
     if (!rtc.begin())         Serial.println("Couldn't find RTC");
@@ -180,4 +196,21 @@ void printHeaders ()
   }
   }
 */
+
+
+/*
+   Sets time on the RTC - Only needed when time drifts!
+*/
+void RTC_setTime()
+{
+  if (! rtc.initialized())
+  {
+    Serial.println("RTC is NOT running!");
+    // following line sets the RTC to the date & time this sketch was compiled
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    // This line sets the RTC with an explicit date & time, for example to set
+    // January 21, 2014 at 3am you would call:
+    // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+  }
+}
 
