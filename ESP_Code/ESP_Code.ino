@@ -13,10 +13,10 @@
 #include "RTClib.h"                 // For RTC - DS1387 clock
 #include <AERClient.h>              // Custom made Library for IoT server
 
-#define SEN_NUM 11
+#define SEN_NUM             12      // Number of sensor expected from Arduino
 
 /* Wifi setup */
-#define DEVICE_ID 4
+#define DEVICE_ID           4
 const char ssid[] =        "AER172-2";
 const char password[] =    "80mawiomi*";
 AERClient server(DEVICE_ID);
@@ -24,7 +24,7 @@ AERClient server(DEVICE_ID);
 // SoftwareSerial //
 #define RX  12
 #define TX  14
-SoftwareSerial Arduino(RX, TX);
+SoftwareSerial Arduino(RX, TX, false, 256);
 
 // SD Card //
 #define CS 15
@@ -46,8 +46,8 @@ void setup()
   // Communication
   Arduino.begin(57600);
   // Start wifi and server communication
-  //server.init(ssid, password);
-  //Serial.println("\nCONNECTED");
+  server.init(ssid, password);
+  Serial.println("\nCONNECTED");
   // Uncomment to debug WiFi and server connection
   //server.debug();
   // Uncomment to set RTC time if its drifted
@@ -57,51 +57,50 @@ void setup()
 
 void loop()
 {
-  String message, FileName, data[SEN_NUM], Time, value;
+  String FileName, Time, value;
+  int index;
   bool header_printed, published;
-  int index = 0, i;
-  char buff[100] = {'\0'}, ch;
-  //DateTime dateTime = rtc.now();      // Getting Time
+  char message[150], data[SEN_NUM][10];
+  memset(message, NULL, 150);
 
+  DateTime dateTime = rtc.now();      // Getting Time
   /*
-  Serial.println(                     // Printing
+    Serial.println(                     // Printing
     String(dateTime.year()) + "/" +
     String(dateTime.month()) + "/" +
     String(dateTime.day()) + " " +
     String(dateTime.hour()) + ":" +
     String(dateTime.minute())
-  );
+    );
   */
 
   /* Store received sensors from Arduino */
   if (Arduino.available())
   {
-    Serial.println("GOT SOMETHING");
-    //strcpy(buff, (Arduino.readString()).c_str());
-    Serial.println(Arduino.readString());
+    readString(message, sizeof(message));
+
     // Error checking and saving
-    /*
-    if (message.substring(0, 1) == "S")
+    if (String(message).substring(0, 1) == "S")
     {
-      strcpy(buff, message.c_str());
-      index = (String(strtok(buff, "_"))).toInt();
+      index = (String(strtok(message, "_") + 1)).toInt();
       value = String(strtok(NULL, "_"));
-      if (index < SEN_NUM) data[index] = value;
+      Serial.println("Parsed -> index = " + String(index) + " value = " + value);
+      if (index < SEN_NUM && index >= 0)
+      {
+        Serial.println("Inside data Copy");
+        strcpy(&data[index][0], value.c_str());
+      }
       Message_count++;                 // Increment sensor count
     }
-    */
   }
 
-/*
+  // Every 12 reading record data to SD card
   if (Message_count >= SEN_NUM)
   {
     Message_count = 0;
-    Serial.print("\n");
     for (uint8_t i = 0; i < SEN_NUM; i++)
-      Serial.print("data[" + String(i) + "] = " + String(data[i]));
-    Serial.print("\n");
+      Serial.println("[" + String(i) + "] = " + String(data[i]));
   }
-  */
 
   delay(100);
   /*
@@ -176,29 +175,6 @@ void printHeaders ()
 }
 
 /*
-   Reads mesage from Arduino
-
-  String get_message ()
-  {
-  long _strt, _delta;
-
-  // Safe non-blocking loop to get the data
-  for (uint8_t i = 0; i < SERIAL_RETRY; i++)
-  {
-    _strt = millis();
-    _delta = (millis() - _strt);
-    while (_delta < (SERIAL_TIMEOUT_S * 100))
-    {
-      if (Arduino.available()) return (Arduino.readString());
-
-      _delta = abs(millis() - _strt);
-    }
-  }
-  }
-*/
-
-
-/*
    Sets time on the RTC - Only needed when time drifts!
 */
 void RTC_setTime()
@@ -212,5 +188,14 @@ void RTC_setTime()
     // January 21, 2014 at 3am you would call:
     // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
   }
+}
+
+/*
+   Read string of characters from serial monitor
+*/
+void readString (char* buff, int len)
+{
+  for (int i = 0; (Arduino.available() > 0) && (i < len); i++)
+    buff[i] = (char) Arduino.read();
 }
 
