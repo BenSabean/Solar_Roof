@@ -5,17 +5,17 @@
 */
 #include <ESP8266WiFi.h>            // ESP WiFi Libarary
 #include <PubSubClient.h>           // MQTT publisher/subscriber client
+#include <stdio.h>                  // for sprintf function
 #include <SoftwareSerial.h>         // For Arduino communication
 #include <SPI.h>                    // For SD card read/write
 #include <SD.h>                     // For SD card read/write
-#include <Wire.h>                   // I2C needed for RTC
+#include <Wire.h>
 #include "RTClib.h"                 // For RTC - DS1387 clock
 #include <AERClient.h>              // Custom made Library for IoT server
 
 #define SEN_NUM             12      // Number of sensor expected from Arduino
-#define LOOP_DELAY_MS       80     // Delay for esp8266 loop
 
-// Wifi setup //
+/* Wifi setup */
 #define DEVICE_ID           4
 const char ssid[] =        "AER172-2";
 const char password[] =    "80mawiomi*";
@@ -29,7 +29,7 @@ SoftwareSerial Arduino(RX, TX, false, 256);
 // SD Card //
 #define CS 15
 File dataFile;
-volatile int Message_count = -1;     // Counting sensors for SD writing
+volatile int Message_count = 0;     // Counting sensors for SD writing
 
 // RealTimeClock //
 RTC_PCF8523 rtc;
@@ -37,7 +37,7 @@ RTC_PCF8523 rtc;
 void setup()
 {
   // ----------
-  Serial.begin(230400);
+  Serial.begin(115200);
   Serial.println("START");
   // ----------
   // RTC initialization
@@ -52,50 +52,57 @@ void setup()
   //server.debug();
   // Uncomment to set RTC time if its drifted
   //RTC_setTime();
-  // Flush serial buffer
-  if (Arduino.available()) Arduino.readString();
+
 }
 
 void loop()
 {
-  String FileName, Time;
-  int index = 5;
+  String FileName, Time, value;
+  int index;
   bool header_printed, published;
-  char message[100], data[SEN_NUM][10], *value;
-  memset(message, '\0', sizeof(message));
-  //for (int i = 0; i < SEN_NUM; i++) memset(&data[i][0], '\0', 10);
+  char message[150], data[SEN_NUM][10];
+  memset(message, NULL, 150);
+
   DateTime dateTime = rtc.now();      // Getting Time
+  /*
+    Serial.println(                     // Printing
+    String(dateTime.year()) + "/" +
+    String(dateTime.month()) + "/" +
+    String(dateTime.day()) + " " +
+    String(dateTime.hour()) + ":" +
+    String(dateTime.minute())
+    );
+  */
 
   /* Store received sensors from Arduino */
   if (Arduino.available())
   {
     readString(message, sizeof(message));
+
     // Error checking and saving
     if (String(message).substring(0, 1) == "S")
     {
-      // Extracting index from S<10>_5.4223
-      index = String( strtok(message, "_") + 1 ).toInt();
-      // Extracting data from S10_<5.4223>
-      value = strtok(NULL, "_");
-      // DEBUG
-      Serial.println(String(index) + "_" + String(value));
+      index = (String(strtok(message, "_") + 1)).toInt();
+      value = String(strtok(NULL, "_"));
+      Serial.println("Parsed -> index = " + String(index) + " value = " + value);
       if (index < SEN_NUM && index >= 0)
-        strcpy(data[index], value);
-
-      Message_count++;                // Increment sensor count
+      {
+        Serial.println("Inside data Copy");
+        strcpy(&data[index][0], value.c_str());
+      }
+      Message_count++;                 // Increment sensor count
     }
   }
 
   // Every 12 reading record data to SD card
-  if (Message_count > SEN_NUM)
+  if (Message_count >= SEN_NUM)
   {
-    Serial.println();
-    for (int s = 0; s < SEN_NUM; s++)
-      Serial.println("[" + String(s) + "] = " + String(data[s]));
-    Message_count = 0;                // Reset message counter after receiving 12 sensor
-    Serial.println();
+    Message_count = 0;
+    for (uint8_t i = 0; i < SEN_NUM; i++)
+      Serial.println("[" + String(i) + "] = " + String(data[i]));
   }
 
+  delay(100);
   /*
     // Save on SD Card
     if (!rtc.begin())         Serial.println("Couldn't find RTC");
@@ -146,8 +153,6 @@ void loop()
     }
     }
   */
-
-  delay(LOOP_DELAY_MS);
 }
 
 /*
@@ -166,7 +171,7 @@ void printHeaders ()
     else          number = i;
     dataFile.print("," + header + String(number));
   }
-  dataFile.println();                 //create a new row to read data more clearly
+  dataFile.println();                  //create a new row to read data more clearly
 }
 
 /*
@@ -190,9 +195,7 @@ void RTC_setTime()
 */
 void readString (char* buff, int len)
 {
-  int i;
-  for (i = 0; (Arduino.available() > 0) && (i < len); i++)
+  for (int i = 0; (Arduino.available() > 0) && (i < len); i++)
     buff[i] = (char) Arduino.read();
-  buff[i - 1] = '\0';         // Getting rid of end of line char
 }
 
