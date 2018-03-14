@@ -1,7 +1,7 @@
 /*
    Reads Serial data from Arduino Mega DAQ module
    And send it over MQTT to aerlab.ddns.net server
-   dateTime: Feb1, 2018
+   Date: March 14, 2018
 */
 #include <ESP8266WiFi.h>            // ESP WiFi Libarary
 #include <PubSubClient.h>           // MQTT publisher/subscriber client
@@ -13,7 +13,7 @@
 #include <AERClient.h>              // Custom made Library for IoT server
 
 #define SEN_NUM             12      // Number of sensor expected from Arduino
-#define LOOP_DELAY_MS       80     // Delay for esp8266 loop
+#define LOOP_DELAY_MS       80      // Delay for esp8266 loop
 
 // Wifi setup //
 #define DEVICE_ID           4
@@ -24,7 +24,7 @@ AERClient server(DEVICE_ID);
 // SoftwareSerial //
 #define RX  12
 #define TX  14
-SoftwareSerial Arduino(RX, TX, false, 256);
+SoftwareSerial Arduino(RX, TX);
 
 // SD Card //
 #define CS 15
@@ -63,8 +63,8 @@ void loop()
   bool header_printed, published;
   char message[100], data[SEN_NUM][10], *value;
   memset(message, '\0', sizeof(message));
+  DateTime dateTime;
   //for (int i = 0; i < SEN_NUM; i++) memset(&data[i][0], '\0', 10);
-  DateTime dateTime = rtc.now();      // Getting Time
 
   /* Store received sensors from Arduino */
   if (Arduino.available())
@@ -77,75 +77,70 @@ void loop()
       index = String( strtok(message, "_") + 1 ).toInt();
       // Extracting data from S10_<5.4223>
       value = strtok(NULL, "_");
-      // DEBUG
-      Serial.println(String(index) + "_" + String(value));
+      // Error checking and saving
       if (index < SEN_NUM && index >= 0)
         strcpy(data[index], value);
-
-      Message_count++;                // Increment sensor count
+      // Increment sensor count
+      Message_count++;
     }
   }
 
-  // Every 12 reading record data to SD card
-  if (Message_count > SEN_NUM)
+  // Every 12 reading publish and record data to SD card
+  if (Message_count >= SEN_NUM - 1)
   {
-    Serial.println();
     for (int s = 0; s < SEN_NUM; s++)
-      Serial.println("[" + String(s) + "] = " + String(data[s]));
+    {
+      Serial.println("[" + String(s) + "] = " + String(data[s])); // DEBUG
+      // Publish to IoT server
+      server.publish("SEN" + String(s), String(data[s]));
+    }
+    Serial.println();                 // DEBUG
     Message_count = 0;                // Reset message counter after receiving 12 sensor
-    Serial.println();
-  }
 
-  /*
+    //
     // Save on SD Card
     if (!rtc.begin())         Serial.println("Couldn't find RTC");
     else
     {
-    if (!rtc.initialized()) Serial.println("RTC is NOT running!");
-    else
-    {
-      if (!SD.begin(CS))    Serial.println("SD Card failed!");
+      if (!rtc.initialized()) Serial.println("RTC is NOT running!");
       else
       {
-        dateTime = rtc.now();      // Getting Time
-
-        Serial.println(            // Printing
-          String(dateTime.year()) + "/" +
-          String(dateTime.month()) + "/" +
-          String(dateTime.day()) + " " +
-          String(dateTime.hour()) + ":" +
-          String(dateTime.year())
-        );
-        // Creating File Name for storage
-        FileName = String(dateTime.day()) + "_" + String(dateTime.month()) + "_" + String(dateTime.year()) + ".csv";
-        header_printed = SD.exists(FileName);       // Check if file already exist
-        dataFile = SD.open(FileName, FILE_WRITE);   // Opening the file
-        if (dataFile)
+        if (!SD.begin(CS))    Serial.println("SD Card failed!");
+        else
         {
-          // Header
-          if (!header_printed) printHeaders();    // printing headers
+          dateTime = rtc.now();      // Getting Time
 
-          // dateTime
-          dataFile.print(String(dateTime.year()) + "/" + String(dateTime.month()) + "/" + String(dateTime.day()) + ",");
+          // Creating File Name for storage
+          FileName = String(dateTime.day()) + "_" + String(dateTime.month()) + "_" + String(dateTime.year()) + ".csv";
+          header_printed = SD.exists(FileName);       // Check if file already exist
+          dataFile = SD.open(FileName, FILE_WRITE);   // Opening the file
+          if (dataFile)
+          {
+            // Header
+            if (!header_printed) printHeaders();    // printing headers
 
-          // Time
-          Time = String(dateTime.hour()) + ":";
-          if (dateTime.minute() < 10)
-            Time = Time + "0" + String(dateTime.minute());
-          else
-            Time = Time + String(dateTime.minute());
-          dataFile.print(Time);                 // Printing Time Stamp
-          // Values
-          for (int i = 0; i < SEN_NUM; i++) // Printing sensor headers
-            dataFile.print("," + data[i]);
-          // End Row
-          dataFile.println();                     //create a new row to read data more clearly
-          dataFile.close();                       //close file
+            // dateTime
+            dataFile.print(String(dateTime.year()) + "/" + String(dateTime.month()) + "/" + String(dateTime.day()) + " ");
+
+            // Time
+            if (dateTime.hour() < 10)     Time = Time + "0" + String(dateTime.hour() + ":");
+            else                          Time = Time + String(dateTime.hour() + ":");
+            if (dateTime.minute() < 10)   Time = Time + "0" + String(dateTime.minute());
+            else                          Time = Time + String(dateTime.minute());
+            dataFile.print(Time);         // Printing Time Stamp
+
+            // Values
+            for (int i = 0; i < SEN_NUM; i++) // Printing sensor headers
+              dataFile.print("," + String(data[i]));
+
+            // End Row
+            dataFile.println();                     //create a new row
+            dataFile.close();                       //close file
+          }
         }
       }
     }
-    }
-  */
+  }
 
   delay(LOOP_DELAY_MS);
 }
@@ -174,15 +169,15 @@ void printHeaders ()
 */
 void RTC_setTime()
 {
-  if (! rtc.initialized())
-  {
-    Serial.println("RTC is NOT running!");
+  //if (! rtc.initialized())
+  //{
+    //Serial.println("RTC is NOT running!");
     // following line sets the RTC to the date & time this sketch was compiled
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
     // This line sets the RTC with an explicit date & time, for example to set
     // January 21, 2014 at 3am you would call:
     // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
-  }
+  //}
 }
 
 /*

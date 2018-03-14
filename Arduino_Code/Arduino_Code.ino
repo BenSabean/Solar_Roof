@@ -11,7 +11,7 @@
 #define SERIAL_MS     200         // Delay between serial messages
                                   // Total Serial delay = (SERIAL_MS * TOTAL_SEN)
 // Sensor callibration
-#define READINGS      200         // Average every reading value (for ~ 1min readings = 800)
+#define READINGS      800         // Average every reading value (for ~ 1min readings = 800)
 
 // One Wire setup
 #define ONE_WIRE      3           // Pin for connecting OneWire sensors
