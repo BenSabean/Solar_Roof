@@ -11,7 +11,7 @@
 #define SERIAL_MS     200         // Delay between serial messages
                                   // Total Serial delay = (SERIAL_MS * TOTAL_SEN)
 // Sensor callibration
-#define READINGS      800         // Average every reading value (for ~ 1min readings = 800)
+#define READINGS      50         // Average every reading value (for ~ 1min readings = 800)
 
 // One Wire setup
 #define ONE_WIRE      3           // Pin for connecting OneWire sensors
@@ -54,7 +54,7 @@ float Offset[] = {
 void setup()
 {
   // Serial for Monitoring
-  Serial.begin(115200);
+  Serial.begin(230400);
   Serial.println(" -- START -- ");
   // Serial to communicate with arduino
   Serial2.begin(57600);
@@ -67,6 +67,7 @@ void setup()
 void loop()
 {
   double data = 0, avg = 0;
+  char buff[20], temp[10];
 
   // Loop to record a large number of readings
   for (int reading = 0; reading < READINGS; reading++)
@@ -76,7 +77,7 @@ void loop()
     {
       // Converting reading from digital to current
       data = ((analogRead(SEN[i]) - Offset[i]) / Slope[i]);
-      if ( data < 0 ) data = 0;
+      //if ( data < 0 ) data = 0;
       s[i].record(data);
       delay(READING_MS);
       // DEBUG
@@ -85,7 +86,7 @@ void loop()
 
     // Getting Voltage reading
     data = ((analogRead(SEN[10]) - Offset[10]) / Slope[10]);
-    if ( data < 0 ) data = 0;
+    //if ( data < 0 ) data = 0;
     s[10].record(data);
     delay(READING_MS);
     // DEBUG
@@ -105,10 +106,13 @@ void loop()
   for (int i = 0; i < TOTAL_SEN; i++)
   {
     avg = s[i].average();     // Getting the average
-    Serial2.println("S" + String(i) + "_" + String(avg));
+    dtostrf(avg, 2, 4, temp);
+    sprintf(buff, "S%d:%s", i, temp);
+    //sprintf(buff, "S%d:%s", i, String(avg, 5).c_str());
+    // dtostrf( [doubleVar] , [sizeBeforePoint] , [sizeAfterPoint] , [WhereToStoreIt] )
+    Serial2.println(buff);
+    Serial.println(buff);
     delay(SERIAL_MS);
-    // DEBUG
-    Serial.println("S" + String(i) + "_" + String(avg));
   }
 
 }
