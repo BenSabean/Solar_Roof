@@ -3,15 +3,15 @@
 #include <Smooth.h>
 
 // Sensor counts
-#define ANALOG_SEN    11          // Number of analog sensor connected 10 Current 1 Voltage 1 Temp
-#define TOTAL_SEN     12          // Total number of sensors
+#define ANALOG_SEN    12          // Number of analog sensor connected 10 Current 2 Voltage 2 Temp
+#define TOTAL_SEN     14          // Total number of sensors
 // Delays
 #define READING_MS    5           // Delay in ms between readings 
-                                  // Total Readings delay = (READING_MS * TOTAL_SEN * READINGS) 
+// Total Readings delay = (READING_MS * TOTAL_SEN * READINGS)
 #define SERIAL_MS     200         // Delay between serial messages
-                                  // Total Serial delay = (SERIAL_MS * TOTAL_SEN)
+// Total Serial delay = (SERIAL_MS * TOTAL_SEN)
 // Sensor callibration
-#define READINGS      50         // Average every reading value (for ~ 1min readings = 800)
+#define READINGS      200         // Average every reading value (for ~ 1min readings = 200)
 
 // One Wire setup
 #define ONE_WIRE      3           // Pin for connecting OneWire sensors
@@ -19,7 +19,7 @@ OneWire oneWire(ONE_WIRE);
 DallasTemperature Temperature(&oneWire);
 
 // Sensor Pins
-int SEN[ANALOG_SEN] = {A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10};
+int SEN[ANALOG_SEN] = {A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11};
 // Buffers for averaging the readings
 Smooth s[TOTAL_SEN];
 
@@ -34,8 +34,9 @@ float Slope[] = {
   20.377,    // S6
   20.367,    // S7
   20.142,    // S8
-  20.54,    // S9
-  1     // S10
+  20.54,     // S9
+  1.3273,    // S10
+  1.3273     // S11
 };
 float Offset[] = {
   577,    // S0 576.41
@@ -48,7 +49,8 @@ float Offset[] = {
   575,    // S7 574.63
   573,    // S8 571.2
   575,    // S9 574.83
-  0     // S10
+  199,    // S10
+  199     // S11
 };
 
 void setup()
@@ -72,44 +74,49 @@ void loop()
   // Loop to record a large number of readings
   for (int reading = 0; reading < READINGS; reading++)
   {
-    // Getting Current CT readings
+    // Getting 10 Current CT readings
     for ( int i = 0; i < 10; i++)
     {
       // Converting reading from digital to current
       data = ((analogRead(SEN[i]) - Offset[i]) / Slope[i]);
-      //if ( data < 0 ) data = 0;
+      if ( data < 0 ) data = 0;
       s[i].record(data);
       delay(READING_MS);
-      // DEBUG
-      //Serial.println("SEN: " + String(i) + " = " + String(data));
     }
 
-    // Getting Voltage reading
+    // Getting Voltage 1 reading
     data = ((analogRead(SEN[10]) - Offset[10]) / Slope[10]);
-    //if ( data < 0 ) data = 0;
+    if ( data < 0 ) data = 0;
     s[10].record(data);
     delay(READING_MS);
-    // DEBUG
-    //Serial.println("SEN: 10 = " + String(data));
 
-    // Getting Temperature reading
-    Temperature.requestTemperatures();
-    data = Temperature.getTempCByIndex(0);
+    // Getting Voltage 2 reading
+    data = ((analogRead(SEN[11]) - Offset[11]) / Slope[11]);
+    if ( data < 0 ) data = 0;
     s[11].record(data);
     delay(READING_MS);
-    // DEBUG
-    //Serial.println("SEN: 11 = " + String(data));
+
+    // Getting Temperature 1 reading
+    Temperature.requestTemperatures();
+    data = Temperature.getTempCByIndex(0);
+    s[12].record(data);
+    delay(READING_MS);
+
+    // Getting Temperature 2 reading
+    Temperature.requestTemperatures();
+    data = Temperature.getTempCByIndex(1);
+    s[13].record(data);
+    delay(READING_MS);
   }
 
-  Serial.println(" -- PRINT -- ");
+  Serial.println("\n -- PRINT -- ");
   // Sending average readings to ESP8266
   for (int i = 0; i < TOTAL_SEN; i++)
   {
     avg = s[i].average();     // Getting the average
     dtostrf(avg, 2, 4, temp);
-    sprintf(buff, "S%d:%s", i, temp);
-    //sprintf(buff, "S%d:%s", i, String(avg, 5).c_str());
     // dtostrf( [doubleVar] , [sizeBeforePoint] , [sizeAfterPoint] , [WhereToStoreIt] )
+    sprintf(buff, "S%d %s", i, temp);
     Serial2.println(buff);
     Serial.println(buff);
     delay(SERIAL_MS);
