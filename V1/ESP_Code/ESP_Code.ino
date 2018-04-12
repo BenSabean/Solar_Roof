@@ -17,8 +17,8 @@
 
 // Wifi setup //
 #define DEVICE_ID           4
-const char ssid[] =        "AER172-2";
-const char password[] =    "80mawiomi*";
+const char ssid[] =        "SolarRoof";
+const char password[] =    "7F61C6A749";
 AERClient server(DEVICE_ID);
 
 // SoftwareSerial //
@@ -49,7 +49,7 @@ void setup()
   if (!SD.begin(CS))  Serial.println("Cannot find SDCard");
   else                SDin = true;
   // Communication
-  Arduino.begin(57600);
+  Arduino.begin(9600); // 38400
   // Start wifi and server communication
   server.init(ssid, password);
   //
@@ -62,7 +62,7 @@ void setup()
   // Flush serial buffer
   if (Arduino.available()) Arduino.readString();
   // Clearing sensor flags
-  for(int i = 0; i < SEN_NUM; i++) sen_flag[i] = false;
+  for (int i = 0; i < SEN_NUM; i++) sen_flag[i] = false;
 }
 
 void loop()
@@ -98,23 +98,23 @@ void loop()
 
   // Looping to check if we received all the sensors
   // If one sensor is false - store is false and recording loop isnot entered
-  for(int i = 0; i < SEN_NUM; i++)
-    if(sen_flag[i] == false) store = false;
-  
+  for (int i = 0; i < SEN_NUM; i++)
+    if (sen_flag[i] == false) store = false;
+
   // Every SEN_NUM reading publish and record data to SD card
   if (store)
   {
-    for(int i = 0; i < SEN_NUM; i++) 
+    for (int i = 0; i < SEN_NUM; i++)
       sen_flag[i] = false;  // Reset message counter after receiving 12 sensor
 
     // Publishing and printing the array
     for (int s = 0; s < SEN_NUM; s++)
     {
       // Converting int to char and publishing to IoT server
-      sprintf(buff, "S%d", s);
-      bool posted = server.publish(buff, data[s]);  
+      sprintf(buff, "Data/Sensor%d", s);
+      bool posted = server.publish(buff, data[s]);
       //
-      sprintf(buff, "S%d %s", s, data[s]);
+      sprintf(buff, "Sensor%d %s", s, data[s]);
       Serial.println(buff); // DEBUG
       //
     }
@@ -129,9 +129,9 @@ void loop()
       Serial.println(buff);
       //
       // Creating File Name for storage
-      sprintf(buff, "%02d_%02d_%02d.csv", dateTime.day(), dateTime.month(), dateTime.year()-2000);
+      sprintf(buff, "%02d_%02d_%02d.csv", dateTime.day(), dateTime.month(), dateTime.year() - 2000);
       //
-      Serial.println("File->" + String(buff));
+      Serial.println("File: " + String(buff));
       //
       header_printed = SD.exists(buff);       // Check if file already exist
       dataFile = SD.open(buff, FILE_WRITE);   // Opening the file
@@ -142,17 +142,17 @@ void loop()
 
         // Printing time - Format -> YYYY/MM/DD hh:mm:ss
         // dateTime
-        sprintf(buff, "%04d/%02d/%02d %02d:%02d", 
-          dateTime.year(), dateTime.month(), dateTime.day(), dateTime.hour(), dateTime.minute());
+        sprintf(buff, "%04d/%02d/%02d %02d:%02d",
+                dateTime.year(), dateTime.month(), dateTime.day(), dateTime.hour(), dateTime.minute());
         dataFile.print(buff);
-        
+
         // Values
         for (int s = 0; s < SEN_NUM; s++) // Printing sensor headers
         {
           sprintf(buff, ",%s", data[s]);
           dataFile.print(buff);
         }
-        
+
         // End Row
         dataFile.println();                     //create a new row
         dataFile.close();                       //close file
@@ -160,8 +160,11 @@ void loop()
         Serial.println("SAVED");
         //
       }
+
+      // Reseting data strings
+      for (int i = 0; i < SEN_NUM; i++) memset(data[i], '\0', sizeof(data[i]));
     }
-  
+
   }
   delay(LOOP_DELAY_MS);
 }
@@ -178,7 +181,7 @@ void printHeaders (File *f)
   for (int i = 1; i <= SEN_NUM; i++) // Printing sensor addresses
   {
     if (i <= 10)    sprintf(header, ",Current %d", i);
-    else if(i <= 12)sprintf(header, ",Voltage %d", i - 10);
+    else if (i <= 12)sprintf(header, ",Voltage %d", i - 10);
     else            sprintf(header, ",Temperature %d", i - 12);
     f->print(header);
   }
@@ -193,7 +196,7 @@ void RTC_setTime()
   // following line sets the RTC to the date & time this sketch was compiled
   //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   // Manutally Adjust time Year, Month, Day, Hour, Minute, Second
-   rtc.adjust(DateTime(2018, 4, 2, 14, 40, 30));
+  rtc.adjust(DateTime(2018, 4, 5, 10, 23, 30));
 }
 
 /*
@@ -201,15 +204,18 @@ void RTC_setTime()
 */
 void readString (char* buff, int len)
 {
-  /*
-  String msg; 
-  msg = Arduino.readString();
-  strcpy(buff, msg.c_str());
-  */
   int i;
+
+  // Delay to wait for data to come in
+  delay(10);
   for (i = 0; i < len && Arduino.available() > 0; i++)
     buff[i] = Arduino.read();
-  buff[i-2] = '\0';
-  
+  buff[i - 2] = '\0';
+
+  /*
+    String msg;
+    msg = Arduino.readString();
+    strcpy(buff, msg.c_str());
+  */
 }
 

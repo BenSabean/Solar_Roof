@@ -11,7 +11,7 @@
 #define SERIAL_MS     200         // Delay between serial messages
 // Total Serial delay = (SERIAL_MS * TOTAL_SEN)
 // Sensor callibration
-#define READINGS      200         // Average every reading value (for ~ 1min readings = 200)
+#define READINGS      800         // Average every reading value (for ~ 1min readings = 200)
 
 // One Wire setup
 #define ONE_WIRE      3           // Pin for connecting OneWire sensors
@@ -59,7 +59,7 @@ void setup()
   Serial.begin(230400);
   Serial.println(" -- START -- ");
   // Serial to communicate with arduino
-  Serial2.begin(57600);
+  Serial2.begin(9600); // 38400
   // One Wire Temp sensors
   Temperature.begin();
   // Setting up pins as inputs
@@ -70,6 +70,8 @@ void loop()
 {
   double data = 0, avg = 0;
   char buff[20], temp[10];
+  memset(buff, '\0', sizeof(buff));
+  memset(temp, '\0', sizeof(temp));
 
   // Loop to record a large number of readings
   for (int reading = 0; reading < READINGS; reading++)
@@ -95,19 +97,17 @@ void loop()
     if ( data < 0 ) data = 0;
     s[11].record(data);
     delay(READING_MS);
-
-    // Getting Temperature 1 reading
-    Temperature.requestTemperatures();
-    data = Temperature.getTempCByIndex(0);
-    s[12].record(data);
-    delay(READING_MS);
-
-    // Getting Temperature 2 reading
-    Temperature.requestTemperatures();
-    data = Temperature.getTempCByIndex(1);
-    s[13].record(data);
-    delay(READING_MS);
   }
+
+  // Getting Temperature 1 reading
+  Temperature.requestTemperatures();
+  data = Temperature.getTempCByIndex(0);
+  s[12].record(data);
+  delay(READING_MS);
+  // Getting Temperature 2 reading
+  data = Temperature.getTempCByIndex(1);
+  s[13].record(data);
+  delay(READING_MS);
 
   Serial.println("\n -- PRINT -- ");
   // Sending average readings to ESP8266
@@ -116,6 +116,7 @@ void loop()
     avg = s[i].average();     // Getting the average
     dtostrf(avg, 2, 4, temp);
     // dtostrf( [doubleVar] , [sizeBeforePoint] , [sizeAfterPoint] , [WhereToStoreIt] )
+    memset(buff, '\0', sizeof(buff));
     sprintf(buff, "S%d %s", i, temp);
     Serial2.println(buff);
     Serial.println(buff);
