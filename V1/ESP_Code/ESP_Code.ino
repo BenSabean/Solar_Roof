@@ -126,7 +126,7 @@ void loop()
     {
       dateTime = rtc.now();      // Getting Time
       //
-      sprintf(buff, "%02d/%02d/%04d %02d:%02d:%02d", dateTime.day(), dateTime.month(), dateTime.year(), dateTime.hour(), dateTime.minute(), dateTime.second());
+      sprintf(buff, "%04d-%02d-%02d %02d:%02d:%02d", dateTime.year(), dateTime.month(), dateTime.day(), dateTime.hour(), dateTime.minute(), dateTime.second());
       server.publish("System/Time", buff);
       Serial.println(buff);
       //
@@ -144,8 +144,8 @@ void loop()
 
         // Printing time - Format -> YYYY/MM/DD hh:mm:ss
         // dateTime
-        sprintf(buff, "%04d/%02d/%02d %02d:%02d",
-                dateTime.year(), dateTime.month(), dateTime.day(), dateTime.hour(), dateTime.minute());
+        sprintf(buff, "%04d-%02d-%02d %02d:%02d:%02d",
+                dateTime.year(), dateTime.month(), dateTime.day(), dateTime.hour(), dateTime.minute(), dateTime.second());
         dataFile.print(buff);
 
         // Values
