@@ -58,7 +58,8 @@ void setup()
   // Uncomment to debug WiFi and server connection
   //server.debug();
   // Uncomment to set RTC time if its drifted
-  //RTC_setTime();
+  // Manutally Adjust time Year, Month, Day, Hour, Minute, Second
+  //rtc.adjust(DateTime(2018, 4, 12, 13, 33, 20));
   // Flush serial buffer
   if (Arduino.available()) Arduino.readString();
   // Clearing sensor flags
@@ -111,8 +112,8 @@ void loop()
     for (int s = 0; s < SEN_NUM; s++)
     {
       // Converting int to char and publishing to IoT server
-      sprintf(buff, "Data/Sensor%d", s);
-      bool posted = server.publish(buff, data[s]);
+      sprintf(buff, "Data/Sensor%d", s + 1);
+      server.publish(buff, data[s]);
       //
       sprintf(buff, "Sensor%d %s", s, data[s]);
       Serial.println(buff); // DEBUG
@@ -125,7 +126,8 @@ void loop()
     {
       dateTime = rtc.now();      // Getting Time
       //
-      sprintf(buff, "%02d:%02d:%02d", dateTime.hour(), dateTime.minute(), dateTime.second());
+      sprintf(buff, "%02d/%02d/%04d %02d:%02d:%02d", dateTime.day(), dateTime.month(), dateTime.year(), dateTime.hour(), dateTime.minute(), dateTime.second());
+      server.publish("System/Time", buff);
       Serial.println(buff);
       //
       // Creating File Name for storage
@@ -188,16 +190,6 @@ void printHeaders (File *f)
   f->println();     //create a new row to read data more clearly
 }
 
-/*
-   Sets time on the RTC - Only needed when time drifts!
-*/
-void RTC_setTime()
-{
-  // following line sets the RTC to the date & time this sketch was compiled
-  //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-  // Manutally Adjust time Year, Month, Day, Hour, Minute, Second
-  rtc.adjust(DateTime(2018, 4, 5, 10, 23, 30));
-}
 
 /*
    Read string of characters from serial monitor

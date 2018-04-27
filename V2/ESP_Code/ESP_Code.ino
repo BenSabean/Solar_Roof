@@ -111,7 +111,7 @@ void loop()
     for (int s = 0; s < SEN_NUM; s++)
     {
       // Converting int to char and publishing to IoT server
-      sprintf(buff, "Data/Sensor%d", s);
+      sprintf(buff, "Data/Sensor%d", s + 1);
       bool posted = server.publish(buff, data[s]);
       //
       sprintf(buff, "Sensor%d %s", s, data[s]);
