@@ -119,7 +119,35 @@ void loop()
       Serial.println(buff); // DEBUG
       //
     }
-    Serial.println();                 // DEBUG
+    //-------------------------------------------
+    //Calculate Power for String 1
+    float cval[] = {0.0, 0.0, 0.0, 0.0, 0.0};
+    for(int i = 0; i < 5; i++) {
+        cval[i] = atof(data[i]);
+    }
+    float v1 = addCur(cval) * atof(data[11]);
+    sprintf(buff, "Data/Sensor15");
+    char cv1[20];
+    //sprintf(cv1, "%f", &v1);
+    dtostrf(v1,8,6,cv1);
+    server.publish(buff, cv1);
+    Serial.print("Power from String 1 (W): ");
+    Serial.println(cv1);
+    
+    //-------------------------------------------
+    //Calculate Power for String 2
+    memset(cval, NULL, sizeof(float)*5);
+    for(int i = 0; i < 5; i++) {
+        cval[i] = atof(data[i + 5]);
+    }
+    float v2 = addCur(cval) * atof(data[10]);
+    sprintf(buff, "Data/Sensor16");
+    char cv2[20];
+    dtostrf(v2,8,6,cv2);
+    server.publish(buff, cv2);
+    Serial.print("Power from String 2 (W): ");
+    Serial.println(cv2);
+    //Serial.println();                 // DEBUG
 
     // Writing files to SD card
     if (SDin && RTCin)
@@ -209,5 +237,16 @@ void readString (char* buff, int len)
     msg = Arduino.readString();
     strcpy(buff, msg.c_str());
   */
+}
+
+/*
+ *  Calculate average of 5 current values.
+ */
+float addCur(float val[]) {
+  float sum = 0.0;
+  for(int i = 0; i < 5; i++) {
+     sum += val[i];
+  }
+  return sum;
 }
 
