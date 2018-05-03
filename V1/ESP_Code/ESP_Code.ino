@@ -183,6 +183,10 @@ void loop()
           dataFile.print(buff);
         }
 
+        // Write power to file
+        sprintf(buff, ",%s,%s", cv1,cv2 );
+        dataFile.print(buff); 
+        
         // End Row
         dataFile.println();                     //create a new row
         dataFile.close();                       //close file
@@ -215,6 +219,8 @@ void printHeaders (File *f)
     else            sprintf(header, ",Temperature %d", i - 12);
     f->print(header);
   }
+  f->print(",Power 1,");
+  f->print("Power 2");
   f->println();     //create a new row to read data more clearly
 }
 
@@ -240,7 +246,7 @@ void readString (char* buff, int len)
 }
 
 /*
- *  Calculate average of 5 current values.
+ *  Calculate sum of 5 current values.
  */
 float addCur(float val[]) {
   float sum = 0.0;
